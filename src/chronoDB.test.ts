@@ -1,4 +1,6 @@
-import { ChronoDB, Storage, Tag } from "./lib";
+import { Tag } from "./blobs";
+import { ChronoDB } from "./chronoDB";
+import { Storage } from "./storage";
 
 describe('testing storage and links', () => {
     async function compareCDB(cdb: ChronoDB) {
