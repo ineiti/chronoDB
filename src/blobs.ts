@@ -165,42 +165,93 @@ export class Tag extends ChronoBlob {
         super(cdb, dbs, "Tag");
     }
 
-    modifyData(nd: Buffer) {
-        this.cdb.cache.push(DBStorage.modifyNow(this.id, nd));
-        this.data.data = nd;
+    modifyTag(tag: string) {
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, Buffer.from(tag)));
+    }
+
+    getTag(): string {
+        return this.data.data.toString();
     }
 }
 
 export class Checkbox extends ChronoBlob {
+    static create(cdb: ChronoDB, text: string, checked?: boolean): Checkbox {
+        return cdb.cacheAndApplyDBS(DBStorage.createNow("Checkbox", Buffer.from(text))) as Checkbox;
+    }
+
     constructor(cdb: ChronoDB, dbs: DBStorage) {
         super(cdb, dbs, "Checkbox");
     }
 
-    modifyData(nd: Buffer) {
-        this.cdb.cache.push(DBStorage.modifyNow(this.id, nd));
-        this.data.data = nd;
+    modifyText(text: string) {
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, Buffer.concat([this.data.data.subarray(0, 1), Buffer.from(text)])));
+    }
+
+    modifyChecked(checked: boolean) {
+        this.data.data[0] = (checked ? "1" : "0").charCodeAt(0);
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, this.data.data));
+    }
+
+    getText(): string {
+        return this.data.data.subarray(1).toString();
+    }
+
+    getChecked(): boolean {
+        return this.data.data.subarray(0).toString() === "1";
     }
 }
 
 export class Text extends ChronoBlob {
+    static create(cdb: ChronoDB, text: string): Checkbox {
+        return cdb.cacheAndApplyDBS(DBStorage.createNow("Text", Buffer.from(text))) as Checkbox;
+    }
+
     constructor(cdb: ChronoDB, dbs: DBStorage) {
         super(cdb, dbs, "Text");
     }
 
-    modifyData(nd: Buffer) {
-        this.cdb.cache.push(DBStorage.modifyNow(this.id, nd));
-        this.data.data = nd;
+    modifyText(text: string) {
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, Buffer.from(text)));
+    }
+
+    getText(): string {
+        return this.data.data.toString();
     }
 }
 
 export class URL extends ChronoBlob {
+    static create(cdb: ChronoDB, url: string, text?: string): Checkbox {
+        return cdb.cacheAndApplyDBS(DBStorage.createNow("Text", URL.concat(url, text ?? ""))) as Checkbox;
+    }
+
+    private static concat(url: string, text: string): Buffer {
+        const b = Buffer.alloc(0);
+        b.writeUint32LE(url.length);
+        b.write(url, 4);
+        b.write(text, 4 + url.length);
+        return b;
+    }
+
     constructor(cdb: ChronoDB, dbs: DBStorage) {
         super(cdb, dbs, "URL");
     }
 
-    modifyData(nd: Buffer) {
-        this.cdb.cache.push(DBStorage.modifyNow(this.id, nd));
-        this.data.data = nd;
+    modifyURL(url: string) {
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, URL.concat(url, this.getText())));
+    }
+
+    modifyText(text: string) {
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, URL.concat(this.getURL(), text)));
+    }
+
+    getURL(): string {
+        const len = this.data.data.readUint32LE(0);
+        return this.data.data.subarray(4, 4 + len).toString();
+    }
+
+    getText(): string {
+        const len = this.data.data.readUint32LE(0);
+        return this.data.data.subarray(4 + len).toString();
     }
 }
 
