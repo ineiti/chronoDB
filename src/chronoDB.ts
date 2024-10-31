@@ -18,9 +18,15 @@ export class ChronoDB {
     // Syncs all the caches to the disk.
     async sync() {
         const cache = this.cache.splice(0);
-        for (const dbs of cache) {
-            await this.storage.add(dbs.toJSON());
-        }
+        this.storage.save(cache.map((dbs) => dbs.toJSON()));
+    }
+
+    blobsAsArray(): string[]{
+        return [...this.blobs.entries()].map(([k,v]) => k + v.toJSON());
+    }
+
+    equals(other: ChronoDB): boolean {
+        return this.blobsAsArray().toString() === other.blobsAsArray().toString();
     }
 
     cacheAndApplyDBS(dbs: DBStorage): ChronoBlob {

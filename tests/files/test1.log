@@ -1,0 +1,4 @@
+db:read:db/empty
+process:file/todo.start.01
+process:file/todo.add.01
+db:compare:db/add.01

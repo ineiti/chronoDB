@@ -1,28 +1,49 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Vault } from 'obsidian';
+import {
+	ViewUpdate,
+	PluginValue,
+	EditorView,
+	ViewPlugin,
+} from '@codemirror/view';
+import { EditorState, StateField, Transaction } from "@codemirror/state";
+
+import { ChronoDB } from 'src/chronoDB';
+import { Storage } from 'src/storage';
+import { ChronoDBDocument } from 'src/document'
 
 // Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
+interface ChronoDBSettings {
 	mySetting: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_SETTINGS: ChronoDBSettings = {
 	mySetting: 'default'
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class ChronoDBPlugin extends Plugin {
+	settings: ChronoDBSettings;
+	chronoDB: ChronoDB;
+	document: ChronoDBDocument;
 
 	async onload() {
 		await this.loadSettings();
+		this.chronoDB = new ChronoDB(new ValutStorage(this.app.vault, "chrono.db"));
+		this.document = new ChronoDBDocument(this.chronoDB, this.app.vault);
 
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
+		const ribbonIconEl = this.addRibbonIcon('dice', 'Run ChronoDB', async (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+			const active = this.app.workspace.getActiveFile();
+			if (active === null) {
+				new Notice("No file active - please choose a file first");
+			} else {
+				await this.document.updateFile(active);
+				new Notice('ChronoDB finished');
+			}
 		});
 		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		// ribbonIconEl.addClass('my-plugin-ribbon-class');
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
@@ -76,6 +97,8 @@ export default class MyPlugin extends Plugin {
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+
+		this.registerEditorExtension(DocumentPlugin);
 	}
 
 	onunload() {
@@ -91,32 +114,45 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
+const DocumentPlugin = StateField.define<string>({
+	create(state: EditorState): string {
+		return "";
+	},
+
+	update(oldState: string, transaction: Transaction): string {
+		console.log(transaction);
+		// ...
+		return oldState;
+	}
+});
+
+
 class SampleModal extends Modal {
 	constructor(app: App) {
 		super(app);
 	}
 
 	onOpen() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.setText('Woah!');
 	}
 
 	onClose() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.empty();
 	}
 }
 
 class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+	plugin: ChronoDBPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: ChronoDBPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
@@ -132,3 +168,22 @@ class SampleSettingTab extends PluginSettingTab {
 				}));
 	}
 }
+
+export class ValutStorage implements Storage {
+	constructor(private vault: Vault, private filename: string) {
+	}
+
+	async load(): Promise<string[]> {
+		const file = this.vault.getFileByPath(this.filename);
+		if (file === null) {
+			return [];
+		}
+		const content = await this.vault.read(file);
+		return content.split("\n");
+	}
+
+	async save(lines: string[]): Promise<void> {
+		this.vault.create(this.filename, lines.join("\n"));
+	}
+}
+

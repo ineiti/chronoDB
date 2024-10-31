@@ -15,30 +15,10 @@ export type DBAction = ("Create" | "Delete" | "Modify" | "Active")
 export type BlobType = ("LinkDirected" | "LinkBi" | "Tag" | "Checkbox" | "Text" | "URL" | "Version");
 
 export class DBStorage {
-    constructor(
-        public timestamp: Time,
-        public action: DBAction,
-        public id: BlobID,
-        // data is only valid for action == ("Created" | "Modified" | "Active") and ignored otherwise.
-        public data?: Buffer,
-        // bType is only valid with action == "Created" and ignored otherwise.
-        public bType?: BlobType
-    ) { }
-
-    toJSON(): string {
-        return JSON.stringify({
-            timestamp: this.timestamp.toString(),
-            action: this.action,
-            id: this.id.toString("hex"),
-            data: this.data?.toString("hex"),
-            bType: this.bType,
-        })
-    }
-
     static fromJSON(str: string): DBStorage {
         const obj = JSON.parse(str);
-        const data = obj.data !== undefined ? Buffer.from(obj.data, "hex") : undefined;
-        return new DBStorage(BigInt(obj.timestamp), obj.action, Buffer.from(obj.id, "hex"), data, obj.bType);
+        const data = obj.data !== undefined ? Buffer.from(obj.data, "base64") : undefined;
+        return new DBStorage(BigInt(obj.timestamp), obj.action, Buffer.from(obj.id, "base64"), data, obj.bType);
     }
 
     static create(timestamp: Time, bType: BlobType, data: Buffer): DBStorage {
@@ -76,6 +56,26 @@ export class DBStorage {
     static activeNow(id: BlobID, dbt: DBTime): DBStorage {
         return DBStorage.active(dbt.created, id, dbt.activeAt[0], dbt.activeAt[1]);
     }
+
+    constructor(
+        public timestamp: Time,
+        public action: DBAction,
+        public id: BlobID,
+        // data is only valid for action == ("Created" | "Modified" | "Active") and ignored otherwise.
+        public data?: Buffer,
+        // bType is only valid with action == "Created" and ignored otherwise.
+        public bType?: BlobType
+    ) { }
+
+    toJSON(): string {
+        return JSON.stringify({
+            timestamp: this.timestamp.toString(),
+            action: this.action,
+            id: this.id.toString("base64"),
+            data: this.data?.toString("base64"),
+            bType: this.bType,
+        })
+    }
 }
 
 export class DBTime {
@@ -93,7 +93,25 @@ export class DBTime {
         return new DBTime(BigInt(Date.now()), activeAt);
     }
 
+    static fromJSON(val: string): DBTime {
+        const s = JSON.parse(val);
+        if (Object.keys(s).toString() !== 'created,activeAt,modified') {
+            throw new Error("Didn't find correct fields")
+        }
+        const dbt = new DBTime(BigInt(s.created), [BigInt(s.activeAt[0]), BigInt(s.activeAt[1])]);
+        dbt.modified = s.modified.map((t: string) => BigInt(t));
+        return dbt;
+    }
+
     constructor(public created: Time, public activeAt = [created, BigInt(0)]) {
+    }
+
+    toJSON(): string {
+        return JSON.stringify({
+            created: this.created,
+            activeAt: this.activeAt,
+            modified: this.modified,
+        })
     }
 
     equals(o: DBTime): boolean {
@@ -130,7 +148,22 @@ export class DBTime {
 }
 
 export class TimeLink {
+    static fromJSON(val: string): TimeLink {
+        const s = JSON.parse(val);
+        if (Object.keys(s).toString() !== 'link,dbTime') {
+            throw new Error("Didn't find correct fields")
+        }
+        return new TimeLink(Buffer.from(s.link, "base64"), DBTime.fromJSON(s.dbTime));
+    }
+
     constructor(public link: BlobID, public dbTime = DBTime.now()) { }
+
+    toJSON(): string {
+        return JSON.stringify({
+            link: this.link.toString("base64"),
+            dbTime: this.dbTime.toJSON(),
+        })
+    }
 
     equals(o: TimeLink): boolean {
         return this.link.equals(o.link) && this.dbTime.equals(o.dbTime);
@@ -138,11 +171,38 @@ export class TimeLink {
 }
 
 export class TimeData {
+    static fromJSON(val: string): TimeData {
+        const s = JSON.parse(val);
+        if (Object.keys(s).toString() !== 'data,dbTime') {
+            throw new Error("Didn't find correct fields")
+        }
+        return new TimeData(Buffer.from(s.data, "base64"), DBTime.fromJSON(s.dbTime));
+    }
+
     constructor(public data: Buffer, public dbTime = DBTime.now()) { }
+
+    toJSON(): string {
+        return JSON.stringify({
+            data: this.data.toString("base64"),
+            dbTime: this.dbTime.toJSON(),
+        })
+    }
+
 }
 
 export interface Storage {
     load(): Promise<string[]>;
-    add(line: string): Promise<void>;
+    save(lines: string[]): Promise<void>;
 }
 
+export class Memory implements Storage {
+    lines: string[] = [];
+
+    async load(): Promise<string[]> {
+        return this.lines;
+    }
+
+    async save(lines: string[]): Promise<void> {
+        this.lines = lines;
+    }
+}

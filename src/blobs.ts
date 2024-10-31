@@ -35,6 +35,24 @@ export class ChronoBlob {
         }
     }
 
+    static fromJSON(cdb: ChronoDB, val: string): ChronoBlob {
+        const s = JSON.parse(val);
+        if (Object.keys(s).toString() !== 'id,btype,data,linksOutgoing,linksIncoming,linksBi,deleted') {
+            throw new Error("Didn't find correct fields")
+        }
+        const data = TimeData.fromJSON(s.data);
+        const cb = new ChronoBlob(cdb,
+            new DBStorage(data.dbTime.created, "Create", Buffer.from(s.id, "base64"), data.data, s.bType),
+            s.bType
+        );
+        cb.linksOutgoing = s.linksOutgoing.map((l: string) => TimeLink.fromJSON(l));
+        cb.linksIncoming = s.linksIncoming.map((l: string) => TimeLink.fromJSON(l));
+        cb.linksBi = s.linksBi.map((l: string) => TimeLink.fromJSON(l));
+        cb.deleted = s.deleted ? BigInt(s.deleted) : undefined;
+
+        return cb;
+    }
+
     constructor(protected cdb: ChronoDB, dbs: DBStorage, dbt: BlobType) {
         if (dbs.action !== "Create") {
             throw new Error("Can only initialize with Create");
@@ -45,6 +63,19 @@ export class ChronoBlob {
         this.id = dbs.id;
         this.btype = dbs.bType!;
         this.data = new TimeData(dbs.data!, new DBTime(dbs.timestamp))
+    }
+
+    toJSON(): string {
+        return JSON.stringify({
+            id: this.id,
+            btype: this.btype,
+            data: this.data.toJSON(),
+            linksOutgoing: this.linksOutgoing.map((l) => l.toJSON()),
+            linksIncoming: this.linksIncoming.map((l) => l.toJSON()),
+            linksBi: this.linksBi.map((l) => l.toJSON()),
+            deleted: this.deleted?.toString(),
+
+        });
     }
 
     setActiveData(dbt: DBTime) {

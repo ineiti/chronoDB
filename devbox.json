@@ -12,6 +12,9 @@
     "scripts": {
       "code": [
         "Code --user-data-dir .vscode"
+      ],
+      "dev": [
+        "npm run dev"
       ]
     }
   }

@@ -1,6 +1,6 @@
 import { Tag } from "./blobs";
 import { ChronoDB } from "./chronoDB";
-import { Storage } from "./storage";
+import { Memory, Storage } from "./storage";
 
 describe('testing storage and links', () => {
     async function compareCDB(cdb: ChronoDB) {
@@ -71,15 +71,3 @@ describe('testing storage and links', () => {
         expect(link3).not.toEqual(link4);
     });
 });
-
-class Memory implements Storage {
-    lines: string[] = [];
-
-    async load(): Promise<string[]> {
-        return this.lines;
-    }
-
-    async add(line: string): Promise<void> {
-        this.lines.push(line);
-    }
-}
