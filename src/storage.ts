@@ -8,6 +8,10 @@ export function randomBlobID(): BlobID {
 
 export type Time = bigint;
 
+export function TimeNow(): Time {
+    return BigInt(new Date().getTime());
+}
+
 // Created and Modified store the data of the blob in 'data'.
 // Active stores the active beginning and end date in 'data'.
 export type DBAction = ("Create" | "Delete" | "Modify" | "Active")

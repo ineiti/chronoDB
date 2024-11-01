@@ -1,10 +1,26 @@
 // Start with storing the ID, too.
 
 import { ChronoDB } from "./chronoDB";
-import { BlobID, BlobType, DBStorage, DBTime, Time, TimeData, TimeLink } from "./storage";
+import { BlobID, BlobType, DBStorage, DBTime, Time, TimeData, TimeLink, TimeNow } from "./storage";
 
-// Even though it might not be necessary.
-export class ChronoBlob {
+export class ChronoBlobData {
+    static fromJSON(val: string): ChronoBlobData {
+        const s = JSON.parse(val);
+        if (Object.keys(s).toString() !== 'id,btype,data,linksOutgoing,linksIncoming,linksBi,deleted') {
+            throw new Error("Didn't find correct fields")
+        }
+        const cb = new ChronoBlobData();
+        cb.id = Buffer.from(s.id, "base64");
+        cb.btype = s.bType;
+        cb.data = TimeData.fromJSON(s.data);
+        cb.linksOutgoing = s.linksOutgoing.map((l: string) => TimeLink.fromJSON(l));
+        cb.linksIncoming = s.linksIncoming.map((l: string) => TimeLink.fromJSON(l));
+        cb.linksBi = s.linksBi.map((l: string) => TimeLink.fromJSON(l));
+        cb.deleted = s.deleted ? BigInt(s.deleted) : undefined;
+
+        return cb;
+    }
+
     id: BlobID;
     btype: BlobType;
     data: TimeData;
@@ -13,6 +29,22 @@ export class ChronoBlob {
     linksBi: TimeLink[] = [];
     deleted?: Time;
 
+    toJSON(): string {
+        return JSON.stringify({
+            id: this.id,
+            btype: this.btype,
+            data: this.data.toJSON(),
+            linksOutgoing: this.linksOutgoing.map((l) => l.toJSON()),
+            linksIncoming: this.linksIncoming.map((l) => l.toJSON()),
+            linksBi: this.linksBi.map((l) => l.toJSON()),
+            deleted: this.deleted?.toString(),
+
+        });
+    }
+}
+
+
+export class ChronoBlob extends ChronoBlobData {
     static factory(cdb: ChronoDB, dbs: DBStorage): ChronoBlob {
         if (dbs.action !== "Create") {
             throw new Error("Can only use Create DBStorage lines");
@@ -35,25 +67,28 @@ export class ChronoBlob {
         }
     }
 
-    static fromJSON(cdb: ChronoDB, val: string): ChronoBlob {
-        const s = JSON.parse(val);
-        if (Object.keys(s).toString() !== 'id,btype,data,linksOutgoing,linksIncoming,linksBi,deleted') {
-            throw new Error("Didn't find correct fields")
-        }
-        const data = TimeData.fromJSON(s.data);
-        const cb = new ChronoBlob(cdb,
-            new DBStorage(data.dbTime.created, "Create", Buffer.from(s.id, "base64"), data.data, s.bType),
-            s.bType
-        );
-        cb.linksOutgoing = s.linksOutgoing.map((l: string) => TimeLink.fromJSON(l));
-        cb.linksIncoming = s.linksIncoming.map((l: string) => TimeLink.fromJSON(l));
-        cb.linksBi = s.linksBi.map((l: string) => TimeLink.fromJSON(l));
-        cb.deleted = s.deleted ? BigInt(s.deleted) : undefined;
+    // Is this still needed?
+    // static fromJSON(cdb: ChronoDB, val: string): ChronoBlob {
+    //     const s = JSON.parse(val);
+    //     if (Object.keys(s).toString() !== 'id,btype,data,linksOutgoing,linksIncoming,linksBi,deleted') {
+    //         throw new Error("Didn't find correct fields")
+    //     }
+    //     const data = TimeData.fromJSON(s.data);
+    //     const cb = new ChronoBlob(cdb,
+    //         new DBStorage(data.dbTime.created, "Create", Buffer.from(s.id, "base64"), data.data, s.bType),
+    //         s.bType
+    //     );
+    //     cb.linksOutgoing = s.linksOutgoing.map((l: string) => TimeLink.fromJSON(l));
+    //     cb.linksIncoming = s.linksIncoming.map((l: string) => TimeLink.fromJSON(l));
+    //     cb.linksBi = s.linksBi.map((l: string) => TimeLink.fromJSON(l));
+    //     cb.deleted = s.deleted ? BigInt(s.deleted) : undefined;
 
-        return cb;
-    }
+    //     return cb;
+    // }
 
     constructor(protected cdb: ChronoDB, dbs: DBStorage, dbt: BlobType) {
+        super();
+
         if (dbs.action !== "Create") {
             throw new Error("Can only initialize with Create");
         }
@@ -63,19 +98,6 @@ export class ChronoBlob {
         this.id = dbs.id;
         this.btype = dbs.bType!;
         this.data = new TimeData(dbs.data!, new DBTime(dbs.timestamp))
-    }
-
-    toJSON(): string {
-        return JSON.stringify({
-            id: this.id,
-            btype: this.btype,
-            data: this.data.toJSON(),
-            linksOutgoing: this.linksOutgoing.map((l) => l.toJSON()),
-            linksIncoming: this.linksIncoming.map((l) => l.toJSON()),
-            linksBi: this.linksBi.map((l) => l.toJSON()),
-            deleted: this.deleted?.toString(),
-
-        });
     }
 
     setActiveData(dbt: DBTime) {
@@ -137,8 +159,6 @@ export class ChronoBlob {
             return link[1] as LinkDirected;
         }
         const link = LinkDirected.create(this.cdb, this.id, to.id, active);
-        this.linksOutgoing.push(link.getTo());
-        to.linksIncoming.push(link.getFrom());
         return link;
     }
 
@@ -185,6 +205,10 @@ export class ChronoBlob {
                 break;
         }
     }
+
+    delete(time = TimeNow()) {
+        this.cdb.cacheAndApplyDBS(DBStorage.delete(time, this.id));
+    }
 }
 
 export class Tag extends ChronoBlob {
@@ -210,25 +234,33 @@ export class Checkbox extends ChronoBlob {
         return cdb.cacheAndApplyDBS(DBStorage.createNow("Checkbox", Buffer.from(text))) as Checkbox;
     }
 
+    static toData(text: string, checked: boolean) {
+        return Buffer.from(`${checked ? "1" : "0"}${text}`);
+    }
+
+    static fromData(data: Buffer): [string, boolean] {
+        return [data.subarray(1).toString(), data.subarray(0).toString() === "1"];
+
+    }
+
     constructor(cdb: ChronoDB, dbs: DBStorage) {
         super(cdb, dbs, "Checkbox");
     }
 
     modifyText(text: string) {
-        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, Buffer.concat([this.data.data.subarray(0, 1), Buffer.from(text)])));
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, Checkbox.toData(text, this.getChecked())));
     }
 
     modifyChecked(checked: boolean) {
-        this.data.data[0] = (checked ? "1" : "0").charCodeAt(0);
-        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, this.data.data));
+        this.cdb.cacheAndApplyDBS(DBStorage.modifyNow(this.id, Checkbox.toData(this.getText(), checked)));
     }
 
     getText(): string {
-        return this.data.data.subarray(1).toString();
+        return Checkbox.fromData(this.data.data)[0];
     }
 
     getChecked(): boolean {
-        return this.data.data.subarray(0).toString() === "1";
+        return Checkbox.fromData(this.data.data)[1];
     }
 }
 

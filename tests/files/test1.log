@@ -1,4 +1,8 @@
 db:read:db/empty
-process:file/todo.start.01
-process:file/todo.add.01
+file:read:file/todo.start.01
+file:process:file/todo.add.01
+file:compare:file/todo.final.01
 db:compare:db/add.01
+file:read:file/todo.start.01
+file:process
+file:compare:file/todo.final.01
