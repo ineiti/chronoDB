@@ -3,7 +3,8 @@
   "packages": [
     "nodejs@latest",
     "vscode@latest",
-    "git@latest"
+    "git@latest",
+    "less@latest"
   ],
   "shell": {
     "init_hook": [

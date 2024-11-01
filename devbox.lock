@@ -73,6 +73,74 @@
         }
       }
     },
+    "less@latest": {
+      "last_modified": "2024-10-24T16:50:28Z",
+      "resolved": "github:NixOS/nixpkgs/63487b2f26fa065cfeeaa47dddb08e2856ba53e8#less",
+      "source": "devbox-search",
+      "version": "668",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8lx9v28s533fbyx558ij0s1qlvwq5w51-less-668",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/6qnjidg4wfq4nl7wn8l9h4piaqwfqhwn-less-668-man",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8lx9v28s533fbyx558ij0s1qlvwq5w51-less-668"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/b192fvkbgzv355bfgkaxvgc9bwfb6g1q-less-668",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/prkpa98ncp6y7qn2935kz9r8c97wr1f8-less-668-man",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/b192fvkbgzv355bfgkaxvgc9bwfb6g1q-less-668"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/kxi4wg7dncir162zfzjl2dxfa0pbakyh-less-668",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/liy814qnvjln1hy94bg79l8v66wahbmc-less-668-man",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/kxi4wg7dncir162zfzjl2dxfa0pbakyh-less-668"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/qba1p5mqlsb6q1jgkf59s69fnp7vr352-less-668",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/y37j70w1xmyz7wmwdv6g4vdm0zrcdsx9-less-668-man",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/qba1p5mqlsb6q1jgkf59s69fnp7vr352-less-668"
+        }
+      }
+    },
     "nodejs@latest": {
       "last_modified": "2024-09-10T15:01:03Z",
       "plugin_version": "0.0.2",
