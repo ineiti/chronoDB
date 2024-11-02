@@ -21,8 +21,8 @@ export type BlobType = ("LinkDirected" | "LinkBi" | "Tag" | "Checkbox" | "Text" 
 export class DBStorage {
     static fromJSON(str: string): DBStorage {
         const obj = JSON.parse(str);
-        const data = obj.data !== undefined ? Buffer.from(obj.data, "base64") : undefined;
-        return new DBStorage(BigInt(obj.timestamp), obj.action, Buffer.from(obj.id, "base64"), data, obj.bType);
+        const data = obj.data !== undefined ? Buffer.from(obj.data, "hex") : undefined;
+        return new DBStorage(BigInt(obj.timestamp), obj.action, Buffer.from(obj.id, "hex"), data, obj.bType);
     }
 
     static create(timestamp: Time, bType: BlobType, data: Buffer): DBStorage {
@@ -75,8 +75,8 @@ export class DBStorage {
         return JSON.stringify({
             timestamp: this.timestamp.toString(),
             action: this.action,
-            id: this.id.toString("base64"),
-            data: this.data?.toString("base64"),
+            id: this.id.toString("hex"),
+            data: this.data?.toString("hex"),
             bType: this.bType,
         })
     }
@@ -157,14 +157,14 @@ export class TimeLink {
         if (Object.keys(s).toString() !== 'link,dbTime') {
             throw new Error("Didn't find correct fields")
         }
-        return new TimeLink(Buffer.from(s.link, "base64"), DBTime.fromJSON(s.dbTime));
+        return new TimeLink(Buffer.from(s.link, "hex"), DBTime.fromJSON(s.dbTime));
     }
 
     constructor(public link: BlobID, public dbTime = DBTime.now()) { }
 
     toJSON(): string {
         return JSON.stringify({
-            link: this.link.toString("base64"),
+            link: this.link.toString("hex"),
             dbTime: this.dbTime.toJSON(),
         })
     }
@@ -180,14 +180,14 @@ export class TimeData {
         if (Object.keys(s).toString() !== 'data,dbTime') {
             throw new Error("Didn't find correct fields")
         }
-        return new TimeData(Buffer.from(s.data, "base64"), DBTime.fromJSON(s.dbTime));
+        return new TimeData(Buffer.from(s.data, "hex"), DBTime.fromJSON(s.dbTime));
     }
 
     constructor(public data: Buffer, public dbTime = DBTime.now()) { }
 
     toJSON(): string {
         return JSON.stringify({
-            data: this.data.toString("base64"),
+            data: this.data.toString("hex"),
             dbTime: this.dbTime.toJSON(),
         })
     }
@@ -196,7 +196,7 @@ export class TimeData {
 
 export interface Storage {
     load(): Promise<string[]>;
-    save(lines: string[]): Promise<void>;
+    add(lines: string[]): Promise<void>;
 }
 
 export class Memory implements Storage {
@@ -206,7 +206,7 @@ export class Memory implements Storage {
         return this.lines;
     }
 
-    async save(lines: string[]): Promise<void> {
-        this.lines = lines;
+    async add(lines: string[]): Promise<void> {
+        this.lines.push(...lines);
     }
 }

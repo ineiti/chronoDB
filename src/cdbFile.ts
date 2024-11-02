@@ -33,15 +33,14 @@ export class CDBFile {
 
             if (line.startsWith(">@")) {
                 blobLines.push([line]);
+            } else if (line.match(/ *- \[[x ]\]/)) {
+                blobLines.push([line]);
             } else {
                 last.push(line);
             }
         }
 
-        for (const block of blobLines) {
-            if (block.length === 0) {
-                continue;
-            }
+        for (const block of blobLines.filter((block) => block.length > 0)) {
             this.blobs.push(CDBBlobData.fromLines(block, this.blobs));
         }
     }
@@ -69,12 +68,25 @@ export class CDBFile {
 
         const [tagsFollower, tagsAdd] = this.getTags(cdb);
 
+        let parents = [updated.blobs[0]];
         for (const blob of updated.blobs) {
+            let last = parents[parents.length - 1];
+            while (blob.indent <= last.indent && parents.length > 1) {
+                parents.pop();
+                last = parents[parents.length - 1];
+            }
             if (blob.id?.length !== 32) {
                 const newBlob = blob.create(cdb);
+                blob.id = newBlob.id;
                 for (const tag of [...tagsFollower, ...tagsAdd]) {
                     newBlob.createLinkDirected(tag);
                 }
+                if (last.indent < blob.indent) {
+                    newBlob.createLinkDirected(cdb.getBlobAny(last.id));
+                }
+            }
+            if (blob.indent > last.indent) {
+                parents.push(blob);
             }
         }
 
@@ -87,6 +99,7 @@ export class CDBFile {
 
     updateFile(cdb: ChronoDB): string {
         this.blobs = this.executeInstructions(cdb).map((blob) => CDBBlobData.fromChronoBlob(blob));
+        CDBBlobData.indentBlobs(this.blobs);
         return this.toString();
     }
 
@@ -251,7 +264,25 @@ class CDBBlobData extends ChronoBlobData {
         cdblob.id = blob.id;
         cdblob.data = blob.data;
         cdblob.btype = blob.btype;
+        cdblob.linksOutgoing = blob.linksOutgoing;
+        cdblob.indent = 0;
         return cdblob;
+    }
+
+    static indentBlobs(blobs: CDBBlobData[]) {
+        if (blobs.length === 0) {
+            return;
+        }
+        blobs[0].indent = 0;
+        for (let i = 1; i < blobs.length; i++) {
+            for (const link of blobs[i].linksOutgoing) {
+                const index = blobs.findIndex((blob) => link.link.equals(blob.id));
+                if (index >= 0 && index < i) {
+                    blobs[i].indent = blobs[index].indent + 2;
+                    break;
+                }
+            }
+        }
     }
 
     static fromLines(lines: string[], previous: ChronoBlobData[]) {
@@ -290,24 +321,27 @@ class CDBBlobData extends ChronoBlobData {
     }
 
     toString(): string {
-        const lines = [];
+        let lines = [];
         const indent = "".padStart(this.indent);
-        if (this.id.length === 32) {
-            lines.push(`>@${this.id.toString('hex')}`);
-        }
         switch (this.btype) {
             case "Tag":
                 lines.push(this.data.data.toString());
                 break;
             case "Checkbox":
                 const cb = Checkbox.fromData(this.data.data);
-                lines.push(`${indent}- [${cb[1] ? 'x' : ' '}] ${cb[0]}`);
+                const cbLines = cb[0].split("\n");
+                lines.push(`- [${cb[1] ? 'x' : ' '}] ${cbLines.shift()}`);
+                lines.push(...cbLines);
                 break;
             case "Text":
-                lines.push(...this.data.data.toString().split("\n").map((l) => indent + l));
+                lines.push(...this.data.data.toString().split("\n"));
                 break;
         }
 
+        lines = lines.map((line) => indent + line);
+        if (this.id.length === 32) {
+            lines.unshift(`>@${this.id.toString('hex')}`);
+        }
         return lines.join("\n");
     }
 

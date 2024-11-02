@@ -41,6 +41,15 @@ describe('testing storage and links', () => {
         expect(link2).toEqual(link1);
     });
 
+    test('saving two tags one after the other', async () => {
+        const cdb = new ChronoDB(new Memory());
+        const tag1 = Tag.create(cdb, "test1");
+        await cdb.sync();
+        const tag2 = Tag.create(cdb, "test2");
+        await cdb.sync();
+        await compareCDB(cdb);
+    });
+
     test('linking two tags with LinkDirected', async () => {
         const cdb = new ChronoDB(new Memory());
         const tag1 = Tag.create(cdb, "test1");

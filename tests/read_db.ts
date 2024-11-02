@@ -37,8 +37,8 @@ export class ReadTestDB implements Storage {
         return this.lines;
     }
 
-    async save(lines: string[]): Promise<void> {
-        this.lines = lines;
+    async add(lines: string[]): Promise<void> {
+        this.lines.push(...lines);
     }
 }
 
@@ -60,8 +60,10 @@ export class ReadTestLog {
                         this.db = new ReadTestDB(file);
                         break;
                     case "compare":
-                        const ok = await this.db.dbEquals(new ReadTestDB(file));
-                        if (!ok) {
+                        const prev = this.db.toString();
+                        const other = new ReadTestDB(file).toString();
+                        if (prev != other) {
+                            console.log("Patch:\n", createPatch(file, prev, other));
                             throw new Error(`Comparison of DB failed with line ${line}`);
                         }
                         break;
@@ -89,16 +91,17 @@ export class ReadTestLog {
                     case "compare":
                         const compare = readFileSync(baseDir + file).toString();
                         if (this.file !== compare) {
-                            console.log(`Old file:\n${this.file}`);
-                            console.log(`\nCompare with:\n${compare}`);
+                            console.log("Patch:\n", createPatch(file, compare, this.file));
                             throw new Error(`Current file doesn't correspond to ${file}`);
                         }
                         break;
                     case "compare_light":
                         const compare_light = readFileSync(baseDir + file).toString();
-                        const file_light = this.file.split("\n").filter((line) => !line.startsWith(">@")).join("\n");
+                        const file_light = this.file.split("\n").filter((line) => !line.startsWith(">@"))
+                            .map((line) => line.trim() === "" ? "" : line)
+                            .join("\n");
                         if (file_light !== compare_light) {
-                            console.log("Patch:\n", createPatch(file, file_light, compare_light));
+                            console.log("Patch:\n", createPatch(file, compare_light, file_light));
                             throw new Error(`Current file doesn't correspond to ${file}`);
                         }
                         break;

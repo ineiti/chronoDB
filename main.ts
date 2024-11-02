@@ -28,7 +28,7 @@ export default class ChronoDBPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		this.chronoDB = new ChronoDB(new ValutStorage(this.app.vault, "chrono.db"));
+		this.chronoDB = new ChronoDB(new VaultStorage(this.app.vault, "chrono.db"));
 		this.document = new ChronoDBDocument(this.chronoDB, this.app.vault);
 
 		// This creates an icon in the left ribbon.
@@ -169,7 +169,7 @@ class SampleSettingTab extends PluginSettingTab {
 	}
 }
 
-export class ValutStorage implements Storage {
+export class VaultStorage implements Storage {
 	constructor(private vault: Vault, private filename: string) {
 	}
 
@@ -182,8 +182,13 @@ export class ValutStorage implements Storage {
 		return content.split("\n");
 	}
 
-	async save(lines: string[]): Promise<void> {
-		this.vault.create(this.filename, lines.join("\n"));
+	async add(lines: string[]): Promise<void> {
+		let file = this.vault.getFileByPath(this.filename);
+		if (file === null) {
+			this.vault.create(this.filename, lines.join("\n"));
+		} else {
+			this.vault.append(file, "\n" + lines.join("\n"));
+		}
 	}
 }
 

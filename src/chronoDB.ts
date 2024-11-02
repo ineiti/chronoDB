@@ -19,7 +19,7 @@ export class ChronoDB {
     // Syncs all the caches to the disk.
     async sync() {
         const cache = this.cache.splice(0);
-        this.storage.save(cache.map((dbs) => dbs.toJSON()));
+        await this.storage.add(cache.map((dbs) => dbs.toJSON()));
     }
 
     blobsAsArray(): string[] {

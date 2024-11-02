@@ -10,7 +10,7 @@ export class ChronoBlobData {
             throw new Error("Didn't find correct fields")
         }
         const cb = new ChronoBlobData();
-        cb.id = Buffer.from(s.id, "base64");
+        cb.id = Buffer.from(s.id, "hex");
         cb.btype = s.bType;
         cb.data = TimeData.fromJSON(s.data);
         cb.linksOutgoing = s.linksOutgoing.map((l: string) => TimeLink.fromJSON(l));
@@ -75,7 +75,7 @@ export class ChronoBlob extends ChronoBlobData {
     //     }
     //     const data = TimeData.fromJSON(s.data);
     //     const cb = new ChronoBlob(cdb,
-    //         new DBStorage(data.dbTime.created, "Create", Buffer.from(s.id, "base64"), data.data, s.bType),
+    //         new DBStorage(data.dbTime.created, "Create", Buffer.from(s.id, "hex"), data.data, s.bType),
     //         s.bType
     //     );
     //     cb.linksOutgoing = s.linksOutgoing.map((l: string) => TimeLink.fromJSON(l));
