@@ -1,4 +1,4 @@
-import { Checkbox, ChronoBlob, ChronoBlobData, Tag } from "./blobs";
+import { Checkbox, ChronoBlob, ChronoBlobData, Tag, Text } from "./blobs";
 import { ChronoDB } from "./chronoDB";
 import { BlobID, DBStorage, TimeData, TimeLink } from "./storage";
 
@@ -7,7 +7,7 @@ import { BlobID, DBStorage, TimeData, TimeLink } from "./storage";
  * 
  * 1..n '>' + CDBInstruction
  * empty line
- * 0..m ">@" + CDBBlobData + "\n"*
+ * 0..m ">@hex_encoded_id\n"? + CDBBlobData + "\n"*
  */
 
 export class CDBFile {
@@ -97,47 +97,56 @@ export class CDBFile {
     }
 
     getTags(cdb: ChronoDB): [ChronoBlob[], ChronoBlob[]] {
-        const tagFollow: ChronoBlob[] = [];
-        const tagAdd: ChronoBlob[] = [];
+        const followers: ChronoBlob[] = [];
+        const newParent: ChronoBlob[] = [];
         for (const instr of this.cdbInstructions) {
-            const [follow, add] = instr.getTags(cdb);
-            tagFollow.push(...follow)
-            tagAdd.push(...add)
+            switch (instr.cdbType) {
+                case "Followers":
+                    followers.push(...instr.getBlobs(cdb));
+                    break;
+                case "NewParent":
+                    newParent.push(...instr.getBlobs(cdb));
+                    break;
+            }
         }
-        return [tagFollow, tagAdd];
+        return [followers, newParent];
     }
 
     executeInstructions(cdb: ChronoDB): ChronoBlob[] {
         let blobs: ChronoBlob[] | undefined;
         for (const inst of this.cdbInstructions) {
-            blobs = inst.getBlobs(cdb, blobs);
+            blobs = inst.getResultBlobs(cdb, blobs);
         }
         return blobs ?? [];
     }
 }
 
-type CDBInstrType = ("TagFollowers" | "Filter" | "TagAdd");
+type CDBInstrType = ("Followers" | "Filter" | "NewParent");
 
 /**
  * Currently the following instructions are supported:
  * 
- * - TagFollowers
- *   #TAGNAME
- *  Edit all the followers of the tag with name TAGNAME.
- *  If no tag with name TAGNAME exists, it is created.
- *  If more than one tag exists with TAGNAME, 
- *  Displays all blobs which have a link TO that tag.
- *  If new blobs get added to this file, they will be linked TO that tag.
- *  If multiple TagSearch are given, the result of blobs linked TO ALL the tags are shown.
+ * - Followers
+ *   &BLOBNAME
+ *  Edit all the followers of the blobs containing BLOBNAME.
+ *  If no blob contains BLOBNAME, it is created.
+ *  If more than one blob exists containing BLOBNAME, they are all considered.
+ *  Displays all blobs which have a link TO at least one of these blobs.
+ *  If new blobs get added to this file, they will be linked TO all blobs containing BLOBNAME.
+ *  If multiple Followers are given, the result of blobs linked TO ALL the BLOBNAME blobs are shown.
+ *  You can restrict the BLOBNAME to tags by starting with a `#`.
+ *  You can restrict the BLOBNAME to IDs by starting with a `$`, in this case BLOBNAME must be a hex string.
  * 
  * - Filter
  *   %PROPERTY [CONDITION]
  *  Only show blobs which have PROPERTY and optionally fulfill CONDITION.
  * 
- * - TagAdd
- *   +#TAGNAME
- *  If no tag with name TAGNAME exists, it will be created.
- *  All blobs in this file will be linked TO this tag.
+ * - NewParent
+ *   +BLOBNAME
+ *  If no blob contains BLOBNAME exists, one will be created.
+ *  All blobs in this file will be linked TO these blobs.
+ *  Starting the BLOBNAME with a `#` will only search for tags.
+ *  Starting the BLOBNAME with a `$` will search for a blob with the ID of BLOBNAME in hexadecimal.
  */
 class CDBInstruction {
     cdbType: CDBInstrType;
@@ -145,8 +154,8 @@ class CDBInstruction {
 
     constructor(line: string) {
         switch (line[0]) {
-            case '#':
-                this.cdbType = "TagFollowers";
+            case '&':
+                this.cdbType = "Followers";
                 this.args = [line.slice(1)];
                 return;
             case '%':
@@ -155,49 +164,68 @@ class CDBInstruction {
                 return;
             case '+':
                 if (line.startsWith("+#")) {
-                    this.cdbType = "TagAdd";
+                    this.cdbType = "NewParent";
                     this.args = [line.slice(2)];
                     return;
                 }
         }
-        throw new Error("Unknown instruction");
+        throw new Error(`Unknown instruction in line: ${line}`);
     }
 
-    getBlobs(cdb: ChronoDB, current?: ChronoBlob[]): ChronoBlob[] {
+    getResultBlobs(cdb: ChronoDB, current?: ChronoBlob[]): ChronoBlob[] {
         if (current === undefined) {
-            if (this.cdbType !== "TagFollowers") {
-                throw new Error("The first instruction needs to be 'TagFollowers'");
+            if (this.cdbType !== "Followers") {
+                throw new Error("The first instruction needs to be 'Followers'");
             }
-            const [tags, _] = this.getTags(cdb);
+            const tags = this.getBlobs(cdb);
             return tags.flatMap((tag) => tag.linksIncoming.map((link) => cdb.getBlobAny(link.link)));
         }
         switch (this.cdbType) {
             case "Filter":
                 break;
-            case "TagAdd":
+            case "NewParent":
                 break;
-            case "TagFollowers":
+            case "Followers":
                 break;
         }
 
         return [];
     }
 
-    getTags(cdb: ChronoDB): [ChronoBlob[], ChronoBlob[]] {
-        let tags = cdb.searchBlobString(this.args[0]).filter((cb) => cb.isBType("Tag"));
-        if (tags.length === 0) {
-            tags = [Tag.create(cdb, this.args[0])];
+    getBlobs(cdb: ChronoDB): ChronoBlob[] {
+        let search = this.args[0];
+        let filter = "";
+        if ("#$".includes(search[0])) {
+            filter = search[0];
+            search = search.substring(1);
         }
-        return [tags, []];
+        let tags = cdb.searchBlobString(search)
+        switch (filter) {
+            case "#":
+                if (tags.length === 0) {
+                    tags = [Tag.create(cdb, search)];
+                } else {
+                    tags = tags.filter((cb) => cb.isBType("Tag"));
+                }
+                break;
+            case "$":
+                tags = [cdb.getBlobAny(Buffer.from(search, "hex"))];
+                break;
+            default:
+                if (tags.length === 0) {
+                    tags = [Text.create(cdb, search)];
+                }
+        }
+        return tags;
     }
 
     toString(): string {
         switch (this.cdbType) {
-            case "TagFollowers":
-                return `>#${this.args[0]}`;
+            case "Followers":
+                return `>&${this.args[0]}`;
             case "Filter":
                 return `>%${this.args[0]}`;
-            case "TagAdd":
+            case "NewParent":
                 return `+#${this.args[0]}`;
         }
     }

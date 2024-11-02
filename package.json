@@ -12,6 +12,7 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/diff": "^6.0.0",
 		"@types/jest": "^29.5.14",
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
@@ -25,6 +26,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
-		"buffer": "^6.0.3"
+		"buffer": "^6.0.3",
+		"diff": "^7.0.0"
 	}
 }

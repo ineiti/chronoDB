@@ -1,3 +1,4 @@
+import { createPatch } from 'diff';
 import { ChronoDB } from '../src/chronoDB';
 import { Storage } from '../src/storage';
 import { readFileSync } from 'fs';
@@ -79,7 +80,7 @@ export class ReadTestLog {
                         break;
                     case "process":
                         let newFile = this.file;
-                        if (file !== undefined){
+                        if (file !== undefined) {
                             newFile = readFileSync(baseDir + file).toString();
                         }
                         this.file = await this.db.db.processFile(this.file, newFile);
@@ -90,6 +91,14 @@ export class ReadTestLog {
                         if (this.file !== compare) {
                             console.log(`Old file:\n${this.file}`);
                             console.log(`\nCompare with:\n${compare}`);
+                            throw new Error(`Current file doesn't correspond to ${file}`);
+                        }
+                        break;
+                    case "compare_light":
+                        const compare_light = readFileSync(baseDir + file).toString();
+                        const file_light = this.file.split("\n").filter((line) => !line.startsWith(">@")).join("\n");
+                        if (file_light !== compare_light) {
+                            console.log("Patch:\n", createPatch(file, file_light, compare_light));
                             throw new Error(`Current file doesn't correspond to ${file}`);
                         }
                         break;
