@@ -132,13 +132,13 @@ export class CDBFile {
     executeInstructions(cdb: ChronoDB): ChronoBlob[] {
         let blobs: ChronoBlob[] | undefined;
         for (const inst of this.cdbInstructions) {
-            blobs = inst.getResultBlobs(cdb, blobs);
+            blobs = inst.getResultBlobs(cdb, blobs, this.getTags(cdb).flat());
         }
         return blobs ?? [];
     }
 }
 
-type CDBInstrType = ("Followers" | "Filter" | "NewParent");
+type CDBInstrType = ("Followers" | "Filter" | "NewParent" | "Command");
 
 /**
  * Currently the following instructions are supported:
@@ -177,19 +177,21 @@ class CDBInstruction {
                 return;
             case '%':
                 this.cdbType = "Filter";
-                this.args = line.slice(1).split(" ");
+                this.args = line.slice(1).split(" ").filter((arg) => arg.length > 0);
                 return;
             case '+':
-                if (line.startsWith("+#")) {
-                    this.cdbType = "NewParent";
-                    this.args = [line.slice(2)];
-                    return;
-                }
+                this.cdbType = "NewParent";
+                this.args = [line.slice(1)];
+                return;
+            case '!':
+                this.cdbType = "Command";
+                this.args = line.slice(1).split(" ").filter((arg) => arg.length > 0);
+                return;
         }
         throw new Error(`Unknown instruction in line: ${line}`);
     }
 
-    getResultBlobs(cdb: ChronoDB, current?: ChronoBlob[]): ChronoBlob[] {
+    getResultBlobs(cdb: ChronoDB, current?: ChronoBlob[], cmdBlobs: ChronoBlob[] = []): ChronoBlob[] {
         if (current === undefined) {
             if (this.cdbType !== "Followers") {
                 throw new Error("The first instruction needs to be 'Followers'");
@@ -203,12 +205,12 @@ class CDBInstruction {
             case "Filter":
                 return current.filter((blob) => blob.filter(this.args));
             case "NewParent":
-                break;
+                throw new Error("Not implemented");
             case "Followers":
-                break;
+                throw new Error("Not implemented");
+            case "Command":
+                return this.execCommand(cdb, current, cmdBlobs);
         }
-
-        return current;
     }
 
     getBlobs(cdb: ChronoDB): ChronoBlob[] {
@@ -245,12 +247,32 @@ class CDBInstruction {
             case "Filter":
                 return `>%${this.args.join(" ")}`;
             case "NewParent":
-                return `+#${this.args[0]}`;
+                return `>+${this.args[0]}`;
+            case "Command":
+                return `>!${this.args.join(" ")}`;
         }
     }
 
     equals(other: CDBInstruction): boolean {
         return this.toString() === other.toString();
+    }
+
+    execCommand(cdb: ChronoDB, current: ChronoBlob[], cmdBlobs: ChronoBlob[]): ChronoBlob[] {
+        switch (this.args[0]) {
+            case "parent":
+                for (let i = 0; i < current.length; i++) {
+                    for (const link of current[i].linksOutgoing) {
+                        if (!current.concat(cmdBlobs).some((b) => b.id.equals(link.link))) {
+                            // Only insert the first link found as parent
+                            current.splice(i, 0, cdb.getBlobAny(link.link));
+                            i++;
+                            // break;
+                        }
+                    }
+                }
+                break;
+        }
+        return current;
     }
 }
 

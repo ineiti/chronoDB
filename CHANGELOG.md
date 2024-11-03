@@ -9,6 +9,7 @@ Following https://keepachangelog.com/en/1.1.0/ and using
 ## [Unreleased]
 
 ### Added
+- Add `>!parent` to show the parent of the same type
 - Add `>%checkbox == true` and `>%checkbox == false` to only show blobs with the given attribute
 - Modify checkboxes: text and check
 - tests driven by files for the todos

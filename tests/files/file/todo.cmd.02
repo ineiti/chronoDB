@@ -1,0 +1,15 @@
+>&#TODO
+>%checkbox == false
+>!parent
+
+- [ ] First Element
+
+  - [ ] First Sub-Element
+
+  - [x] Second Sub-Element
+
+    - [ ] Second Sub-Sub-Element
+
+  - [ ] Third Sub-Element
+
+- [ ] Second Sub-Element

@@ -2,12 +2,26 @@
 
 ## Functionality
 
-- Add `>!parent` to show the parent of the same type
+### Obsidian
+
+- Work on Obsidian integration
+  - Call fileupdate when saving
+  - Show errors in file
+  - Hide `>@` as a character
+    - When hitting `Enter` over it, show some additional information about it
+  - Make nice display with lines
+  - Auto-save?
+  - Auto-complete?
+
+### Backend
+
 - Add `>+` for a new parent
 - Check that everything also works with texts and other blobs
 - Make work `LinkBi`
 
 ## Cleanup
+
+### Backend
 - replace `ChronoBlob`'s `TimeLink` and `TimeData` with a getter
   - add a `DBStorage` array to `ChronoBlob`
   - each getter has an optional value `time`
@@ -17,3 +31,7 @@
 - ChronoBlob.filter - might be better to have a filter like `Checkbox.checked` and then test
   if it's the right blob-type, before calling the filter.
   It could also allow for `*.date` to call generic filters.
+- Use a nosql database instead of a textfile
+
+### Obsidian
+- Only work in subdirectory configured by plug-in
