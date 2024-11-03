@@ -47,7 +47,8 @@ export class CDBFile {
     }
 
     async process(cdb: ChronoDB, updated: CDBFile): Promise<string> {
-        if (!this.cdbInstructions.every((instr, i) => instr.equals(updated.cdbInstructions[i]))) {
+        if (this.cdbInstructions.length !== updated.cdbInstructions.length ||
+            !this.cdbInstructions.every((instr, i) => instr.equals(updated.cdbInstructions[i]))) {
             this.cdbInstructions = updated.cdbInstructions;
             return this.updateFile(cdb);
         }
@@ -97,7 +98,7 @@ export class CDBFile {
     }
 
     getBlob(id: BlobID): CDBBlobData | undefined {
-        return this.blobs.filter((blob) => id.equals(blob.id))[0];
+        return this.blobs.filter((blob) => blob.idValid() && blob.id.equals(id))[0];
     }
 
     updateFile(cdb: ChronoDB): string {
@@ -176,7 +177,7 @@ class CDBInstruction {
                 return;
             case '%':
                 this.cdbType = "Filter";
-                this.args = line.split(" ", 2);
+                this.args = line.slice(1).split(" ");
                 return;
             case '+':
                 if (line.startsWith("+#")) {
@@ -200,14 +201,14 @@ class CDBInstruction {
         }
         switch (this.cdbType) {
             case "Filter":
-                break;
+                return current.filter((blob) => blob.filter(this.args));
             case "NewParent":
                 break;
             case "Followers":
                 break;
         }
 
-        return [];
+        return current;
     }
 
     getBlobs(cdb: ChronoDB): ChronoBlob[] {
@@ -242,7 +243,7 @@ class CDBInstruction {
             case "Followers":
                 return `>&${this.args[0]}`;
             case "Filter":
-                return `>%${this.args[0]}`;
+                return `>%${this.args.join(" ")}`;
             case "NewParent":
                 return `+#${this.args[0]}`;
         }

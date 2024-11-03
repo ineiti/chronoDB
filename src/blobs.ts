@@ -29,7 +29,7 @@ export class ChronoBlobData {
     linksBi: TimeLink[] = [];
     deleted?: Time;
 
-    overwrite(other: ChronoBlobData){
+    overwrite(other: ChronoBlobData) {
         this.id = other.id;
         this.btype = other.btype
         this.data = other.data;
@@ -217,12 +217,16 @@ export class ChronoBlob extends ChronoBlobData {
         }
     }
 
-    modifyData(data: Buffer, time = TimeNow()){
+    modifyData(data: Buffer, time = TimeNow()) {
         this.cdb.cacheAndApplyDBS(DBStorage.modify(time, this.id, data));
     }
 
     delete(time = TimeNow()) {
         this.cdb.cacheAndApplyDBS(DBStorage.delete(time, this.id));
+    }
+
+    filter(args: string[]): boolean {
+        return false;
     }
 }
 
@@ -277,6 +281,22 @@ export class Checkbox extends ChronoBlob {
 
     getChecked(): boolean {
         return Checkbox.fromData(this.data.data)[1];
+    }
+
+    filter(args: string[]): boolean {
+        if (args.length === 0) {
+            return true;
+        }
+        switch (args[0].toLowerCase()) {
+            case "checkbox":
+                switch (args.slice(1).join(" ").toLowerCase()) {
+                    case "== true":
+                        return this.getChecked() === true;
+                    case "== false":
+                        return this.getChecked() === false;
+                }
+        }
+        return false;
     }
 }
 

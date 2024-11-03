@@ -133,6 +133,7 @@ export class ReadTestLog {
                 await this.executeLine(line);
             } catch (e) {
                 console.error(`${line}:\n${e}`);
+                console.dir(e);
                 return;
             }
         }
