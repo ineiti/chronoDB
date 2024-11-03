@@ -190,6 +190,7 @@ export class ChronoBlob extends ChronoBlobData {
         switch (dbs.action) {
             case "Delete":
                 this.data.dbTime.delete(dbs.timestamp, dbs.timestamp);
+                this.deleted = dbs.timestamp;
                 break;
             case "Modify":
                 if (dbs.data === undefined) {
@@ -213,7 +214,7 @@ export class ChronoBlob extends ChronoBlobData {
 
 export class Tag extends ChronoBlob {
     static create(cdb: ChronoDB, tag: string): Tag {
-        return cdb.cacheAndApplyDBS(DBStorage.createNow("Tag", Buffer.from(tag))) as Tag;
+        return cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), "Tag", Buffer.from(tag))) as Tag;
     }
 
     constructor(cdb: ChronoDB, dbs: DBStorage) {
@@ -231,7 +232,7 @@ export class Tag extends ChronoBlob {
 
 export class Checkbox extends ChronoBlob {
     static create(cdb: ChronoDB, text: string, checked?: boolean): Checkbox {
-        return cdb.cacheAndApplyDBS(DBStorage.createNow("Checkbox", Buffer.from(text))) as Checkbox;
+        return cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), "Checkbox", Buffer.from(text))) as Checkbox;
     }
 
     static toData(text: string, checked: boolean) {
@@ -266,7 +267,7 @@ export class Checkbox extends ChronoBlob {
 
 export class Text extends ChronoBlob {
     static create(cdb: ChronoDB, text: string): Checkbox {
-        return cdb.cacheAndApplyDBS(DBStorage.createNow("Text", Buffer.from(text))) as Checkbox;
+        return cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), "Text", Buffer.from(text))) as Checkbox;
     }
 
     constructor(cdb: ChronoDB, dbs: DBStorage) {
@@ -284,7 +285,7 @@ export class Text extends ChronoBlob {
 
 export class URL extends ChronoBlob {
     static create(cdb: ChronoDB, url: string, text?: string): Checkbox {
-        return cdb.cacheAndApplyDBS(DBStorage.createNow("Text", URL.concat(url, text ?? ""))) as Checkbox;
+        return cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), "Text", URL.concat(url, text ?? ""))) as Checkbox;
     }
 
     private static concat(url: string, text: string): Buffer {
@@ -322,10 +323,10 @@ export class LinkBi extends ChronoBlob {
     links: BlobID[];
 
     static create(cdb: ChronoDB, one: BlobID, two: BlobID, active?: DBTime): LinkBi {
-        const data = Buffer.alloc(64);
+        const data = Buffer.alloc(2 * cdb.idLen);
         one.copy(data);
-        two.copy(data, 32);
-        const link = cdb.cacheAndApplyDBS(DBStorage.createNow("LinkBi", data));
+        two.copy(data, cdb.idLen);
+        const link = cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), "LinkBi", data));
 
         if (active !== undefined) {
             cdb.cacheAndApplyDBS(DBStorage.activeNow(link.id, active));
@@ -335,9 +336,9 @@ export class LinkBi extends ChronoBlob {
 
     constructor(cdb: ChronoDB, dbs: DBStorage) {
         super(cdb, dbs, "LinkBi");
-        this.links = [Buffer.alloc(32), Buffer.alloc(32)];
-        this.data.data.copy(this.links[0], 0, 0, 32);
-        this.data.data.copy(this.links[1], 0, 32, 128);
+        this.links = [Buffer.alloc(cdb.idLen), Buffer.alloc(cdb.idLen)];
+        this.data.data.copy(this.links[0], 0, 0, cdb.idLen);
+        this.data.data.copy(this.links[1], 0, cdb.idLen, 2 * cdb.idLen);
 
         const [one, two] = [this.cdb.blobs.get(this.getOne().link.toString("hex")),
         this.cdb.blobs.get(this.getTwo().link.toString("hex"))];
@@ -361,11 +362,11 @@ export class LinkDirected extends ChronoBlob {
     to: BlobID;
 
     static create(cdb: ChronoDB, from: BlobID, to: BlobID, active?: DBTime): LinkDirected {
-        const data = Buffer.alloc(64);
+        const data = Buffer.alloc(2 * cdb.idLen);
         from.copy(data);
-        to.copy(data, 32);
+        to.copy(data, cdb.idLen);
 
-        const link = cdb.cacheAndApplyDBS(DBStorage.createNow("LinkDirected", data));
+        const link = cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), "LinkDirected", data));
 
         if (active !== undefined) {
             cdb.cacheAndApplyDBS(DBStorage.activeNow(link.id, active));
@@ -375,10 +376,10 @@ export class LinkDirected extends ChronoBlob {
 
     constructor(cdb: ChronoDB, dbs: DBStorage) {
         super(cdb, dbs, "LinkDirected");
-        this.from = Buffer.alloc(32);
-        this.to = Buffer.alloc(32);
-        this.data.data.copy(this.from, 0, 0, 32);
-        this.data.data.copy(this.to, 0, 32, 64);
+        this.from = Buffer.alloc(cdb.idLen);
+        this.to = Buffer.alloc(cdb.idLen);
+        this.data.data.copy(this.from, 0, 0, cdb.idLen);
+        this.data.data.copy(this.to, 0, cdb.idLen, 2 * cdb.idLen);
 
         const [from, to] = [cdb.blobs.get(this.getFrom().link.toString("hex")),
         this.cdb.blobs.get(this.getTo().link.toString("hex"))];

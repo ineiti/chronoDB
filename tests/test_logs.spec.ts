@@ -16,7 +16,10 @@ describe("Test logs", () => {
         mm.afterAll();
     });
 
-    for (const log of ['test1.log', 'test2.log']) {
+    for (const log of [
+        'test1.log',
+        'test2.log'
+    ]) {
         test(`Executing ${log}`, async () => {
             console.log(`Running log ${log}`)
             const rtl = new ReadTestLog(`${log}`);

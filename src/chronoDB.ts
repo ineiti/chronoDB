@@ -1,10 +1,12 @@
 import { BlobID, BlobType, DBStorage, Storage } from "./storage";
 import { ChronoBlob, Tag } from "./blobs";
 import { CDBFile } from "./cdbFile";
+import { randomBytes } from "crypto";
 
 export class ChronoDB {
     blobs = new Map<string, ChronoBlob>();
     cache: DBStorage[] = [];
+    idLen = 32;
 
     constructor(public storage: Storage) {
     }
@@ -35,20 +37,9 @@ export class ChronoDB {
         return this.applyDBS(dbs);
     }
 
-    private applyDBS(dbs: DBStorage): ChronoBlob {
-        if (dbs.action === "Create") {
-            const blob = ChronoBlob.factory(this, dbs);
-            this.blobs.set(blob.idStr(), blob);
-            return blob;
-        } else {
-            const blob = this.blobs.get(dbs.id.toString("hex"));
-            if (blob === undefined) {
-                throw new Error("Got undefined ID in the DBStorage");
-            }
-            blob.addDBStorage(dbs);
-            return blob;
-        }
-    }
+    randomID(): BlobID {
+        return randomBytes(this.idLen);
+    }    
 
     // Adds a blob to the internal storage.
     addBlob(b: ChronoBlob) {
@@ -113,5 +104,20 @@ export class ChronoDB {
      */
     async processFile(savedFile: string, editFile: string): Promise<string> {
         return new CDBFile(savedFile).process(this, new CDBFile(editFile));
+    }
+
+    private applyDBS(dbs: DBStorage): ChronoBlob {
+        if (dbs.action === "Create") {
+            const blob = ChronoBlob.factory(this, dbs);
+            this.blobs.set(blob.idStr(), blob);
+            return blob;
+        } else {
+            const blob = this.blobs.get(dbs.id.toString("hex"));
+            if (blob === undefined) {
+                throw new Error("Got undefined ID in the DBStorage");
+            }
+            blob.addDBStorage(dbs);
+            return blob;
+        }
     }
 }

@@ -1,15 +1,9 @@
-import { randomBytes } from "crypto";
-
 export type BlobID = Buffer;
-
-export function randomBlobID(): BlobID {
-    return randomBytes(32);
-}
 
 export type Time = bigint;
 
 export function TimeNow(): Time {
-    return BigInt(new Date().getTime());
+    return BigInt(Date.now());
 }
 
 // Created and Modified store the data of the blob in 'data'.
@@ -25,12 +19,12 @@ export class DBStorage {
         return new DBStorage(BigInt(obj.timestamp), obj.action, Buffer.from(obj.id, "hex"), data, obj.bType);
     }
 
-    static create(timestamp: Time, bType: BlobType, data: Buffer): DBStorage {
-        return new DBStorage(timestamp, "Create", randomBlobID(), data, bType);
+    static create(id: BlobID, timestamp: Time, bType: BlobType, data: Buffer): DBStorage {
+        return new DBStorage(timestamp, "Create", id, data, bType);
     }
 
-    static createNow(bType: BlobType, data: Buffer): DBStorage {
-        return DBStorage.create(BigInt(Date.now()), bType, data);
+    static createNow(id: BlobID, bType: BlobType, data: Buffer): DBStorage {
+        return DBStorage.create(id, TimeNow(), bType, data);
     }
 
     static delete(timestamp: Time, id: BlobID): DBStorage {
@@ -38,7 +32,7 @@ export class DBStorage {
     }
 
     static deleteNow(id: BlobID): DBStorage {
-        return DBStorage.delete(BigInt(Date.now()), id);
+        return DBStorage.delete(TimeNow(), id);
     }
 
     static modify(timestamp: Time, id: BlobID, data: Buffer): DBStorage {
@@ -46,7 +40,7 @@ export class DBStorage {
     }
 
     static modifyNow(id: BlobID, data: Buffer): DBStorage {
-        return DBStorage.modify(BigInt(Date.now()), id, data);
+        return DBStorage.modify(TimeNow(), id, data);
     }
 
     static active(timestamp: Time, id: BlobID, from: bigint, to: bigint): DBStorage {
@@ -89,12 +83,12 @@ export class DBTime {
         return [data.readBigUInt64LE(0), data.readBigUInt64LE(8)];
     }
 
-    static fromData(data: Buffer, created = BigInt(Date.now())): DBTime {
+    static fromData(data: Buffer, created = TimeNow()): DBTime {
         return new DBTime(created, DBTime.dataToArray(data));
     }
 
     static now(activeAt?: [Time, Time]): DBTime {
-        return new DBTime(BigInt(Date.now()), activeAt);
+        return new DBTime(TimeNow(), activeAt);
     }
 
     static fromJSON(val: string): DBTime {

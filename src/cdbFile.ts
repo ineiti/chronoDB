@@ -33,7 +33,8 @@ export class CDBFile {
 
             if (line.startsWith(">@")) {
                 blobLines.push([line]);
-            } else if (line.match(/ *- \[[x ]\]/)) {
+            } else if (line.match(/ *- \[[x ]\]/) &&
+                !(last.length === 1 && last[0].startsWith(">@"))) {
                 blobLines.push([line]);
             } else {
                 last.push(line);
@@ -52,7 +53,7 @@ export class CDBFile {
         }
 
         for (const blob of this.blobs) {
-            if (blob.id.length === 32) {
+            if (blob.id.length === cdb.idLen) {
                 const blob2 = updated.getBlob(blob.id);
                 if (blob2 === undefined) {
                     cdb.getBlobAny(blob.id).delete();
@@ -75,7 +76,7 @@ export class CDBFile {
                 parents.pop();
                 last = parents[parents.length - 1];
             }
-            if (blob.id?.length !== 32) {
+            if (blob.id?.length !== cdb.idLen) {
                 const newBlob = blob.create(cdb);
                 blob.id = newBlob.id;
                 for (const tag of [...tagsFollower, ...tagsAdd]) {
@@ -94,7 +95,7 @@ export class CDBFile {
     }
 
     getBlob(id: BlobID): CDBBlobData | undefined {
-        return this.blobs.filter((blob) => id.equals(blob.id)).first();
+        return this.blobs.filter((blob) => id.equals(blob.id))[0];
     }
 
     updateFile(cdb: ChronoDB): string {
@@ -191,7 +192,9 @@ class CDBInstruction {
                 throw new Error("The first instruction needs to be 'Followers'");
             }
             const tags = this.getBlobs(cdb);
-            return tags.flatMap((tag) => tag.linksIncoming.map((link) => cdb.getBlobAny(link.link)));
+            return tags
+                .flatMap((tag) => tag.linksIncoming.map((link) => cdb.getBlobAny(link.link)))
+                .filter((blob) => blob.deleted === undefined);
         }
         switch (this.cdbType) {
             case "Filter":
@@ -212,24 +215,24 @@ class CDBInstruction {
             filter = search[0];
             search = search.substring(1);
         }
-        let tags = cdb.searchBlobString(search)
+        let blobs = cdb.searchBlobString(search)
         switch (filter) {
             case "#":
-                if (tags.length === 0) {
-                    tags = [Tag.create(cdb, search)];
+                if (blobs.length === 0) {
+                    blobs = [Tag.create(cdb, search)];
                 } else {
-                    tags = tags.filter((cb) => cb.isBType("Tag"));
+                    blobs = blobs.filter((cb) => cb.isBType("Tag"));
                 }
                 break;
             case "$":
-                tags = [cdb.getBlobAny(Buffer.from(search, "hex"))];
+                blobs = [cdb.getBlobAny(Buffer.from(search, "hex"))];
                 break;
             default:
-                if (tags.length === 0) {
-                    tags = [Text.create(cdb, search)];
+                if (blobs.length === 0) {
+                    blobs = [Text.create(cdb, search)];
                 }
         }
-        return tags;
+        return blobs.filter((blob) => blob.deleted === undefined);
     }
 
     toString(): string {
@@ -289,7 +292,7 @@ class CDBBlobData extends ChronoBlobData {
         const cdblob = new CDBBlobData();
 
         if (lines[0].startsWith(">@")) {
-            cdblob.id = Buffer.from(lines.shift()!, "hex");
+            cdblob.id = Buffer.from(lines.shift()!.slice(2), "hex");
         }
         cdblob.indent = lines[0].length - lines[0].trimStart().length;
         const blob = lines[0].slice(cdblob.indent);
@@ -339,14 +342,14 @@ class CDBBlobData extends ChronoBlobData {
         }
 
         lines = lines.map((line) => indent + line);
-        if (this.id.length === 32) {
+        if (this.idValid()) {
             lines.unshift(`>@${this.id.toString('hex')}`);
         }
         return lines.join("\n");
     }
 
     equals(other: CDBBlobData): boolean {
-        if (this.id === undefined || this.id.length !== 32 || !this.id.equals(other.id)) {
+        if (this.idValid() || !this.id.equals(other.id)) {
             return false;
         }
         if (this.btype !== other.btype || !this.data.data.equals(other.data.data)) {
@@ -362,6 +365,10 @@ class CDBBlobData extends ChronoBlobData {
     }
 
     create(cdb: ChronoDB): ChronoBlob {
-        return cdb.cacheAndApplyDBS(DBStorage.createNow(this.btype, this.data.data));
+        return cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), this.btype, this.data.data));
+    }
+
+    private idValid(): boolean {
+        return this.id !== undefined && this.id.length > 0;
     }
 }

@@ -3,3 +3,5 @@ file:read:file/todo.start.01
 file:process:file/todo.add.02
 file:compare_light:file/todo.add.02
 db:compare:db/add.02
+file:process:file/todo.rm.01
+file:compare_light:file/todo.rm.01
