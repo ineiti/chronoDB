@@ -1,0 +1,8 @@
+db:read:db/empty
+file:read:file/todo.start.01
+file:process:file/todo.add.02
+file:process:file/todo.modify.01
+file:compare_light:file/todo.modify.02
+file:process:file/todo.modify.03
+file:compare_light:file/todo.modify.03
+db:compare:db/modify.03

@@ -17,8 +17,9 @@ describe("Test logs", () => {
     });
 
     for (const log of [
-        'test1.log',
-        'test2.log'
+        'test.01',
+        'test.02',
+        'test.03',
     ]) {
         test(`Executing ${log}`, async () => {
             console.log(`Running log ${log}`)

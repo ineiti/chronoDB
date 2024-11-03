@@ -9,5 +9,6 @@ Following https://keepachangelog.com/en/1.1.0/ and using
 ## [Unreleased]
 
 ### Added
+- Modify checkboxes: text and check
 - tests driven by files for the todos
 - chronoDB implementation

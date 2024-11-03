@@ -29,6 +29,16 @@ export class ChronoBlobData {
     linksBi: TimeLink[] = [];
     deleted?: Time;
 
+    overwrite(other: ChronoBlobData){
+        this.id = other.id;
+        this.btype = other.btype
+        this.data = other.data;
+        this.linksOutgoing = other.linksOutgoing;
+        this.linksIncoming = other.linksIncoming;
+        this.linksBi = other.linksBi;
+        this.deleted = other.deleted;
+    }
+
     toJSON(): string {
         return JSON.stringify({
             id: this.id,
@@ -207,6 +217,10 @@ export class ChronoBlob extends ChronoBlobData {
         }
     }
 
+    modifyData(data: Buffer, time = TimeNow()){
+        this.cdb.cacheAndApplyDBS(DBStorage.modify(time, this.id, data));
+    }
+
     delete(time = TimeNow()) {
         this.cdb.cacheAndApplyDBS(DBStorage.delete(time, this.id));
     }
@@ -240,7 +254,8 @@ export class Checkbox extends ChronoBlob {
     }
 
     static fromData(data: Buffer): [string, boolean] {
-        return [data.subarray(1).toString(), data.subarray(0).toString() === "1"];
+        const str = data.toString();
+        return [str.slice(1), str[0] === "1"];
 
     }
 

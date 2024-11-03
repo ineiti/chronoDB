@@ -70,24 +70,26 @@ export class CDBFile {
         const [tagsFollower, tagsAdd] = this.getTags(cdb);
 
         let parents = [updated.blobs[0]];
-        for (const blob of updated.blobs) {
+        for (const cdBlob of updated.blobs) {
             let last = parents[parents.length - 1];
-            while (blob.indent <= last.indent && parents.length > 1) {
+            while (cdBlob.indent <= last.indent && parents.length > 1) {
                 parents.pop();
                 last = parents[parents.length - 1];
             }
-            if (blob.id?.length !== cdb.idLen) {
-                const newBlob = blob.create(cdb);
-                blob.id = newBlob.id;
-                for (const tag of [...tagsFollower, ...tagsAdd]) {
-                    newBlob.createLinkDirected(tag);
-                }
-                if (last.indent < blob.indent) {
-                    newBlob.createLinkDirected(cdb.getBlobAny(last.id));
-                }
+            const blob = cdBlob.getBlobOrCreate(cdb);
+            for (const tag of [...tagsFollower, ...tagsAdd]) {
+                blob.createLinkDirected(tag);
             }
-            if (blob.indent > last.indent) {
-                parents.push(blob);
+            if (last.indent < cdBlob.indent) {
+                blob.createLinkDirected(cdb.getBlobAny(last.id));
+            }
+
+            if (!cdBlob.data.data.equals(blob.data.data)) {
+                blob.modifyData(cdBlob.data.data);
+            }
+
+            if (cdBlob.indent > last.indent) {
+                parents.push(cdBlob);
             }
         }
 
@@ -364,11 +366,20 @@ class CDBBlobData extends ChronoBlobData {
         return true;
     }
 
-    create(cdb: ChronoDB): ChronoBlob {
-        return cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), this.btype, this.data.data));
+    getBlobOrCreate(cdb: ChronoDB): ChronoBlob {
+        if (this.idValid()) {
+            return cdb.getBlobAny(this.id);
+        }
+        return this.create(cdb);
     }
 
-    private idValid(): boolean {
+    create(cdb: ChronoDB): ChronoBlob {
+        const blob = cdb.cacheAndApplyDBS(DBStorage.createNow(cdb.randomID(), this.btype, this.data.data));
+        this.overwrite(blob);
+        return blob;
+    }
+
+    idValid(): boolean {
         return this.id !== undefined && this.id.length > 0;
     }
 }
